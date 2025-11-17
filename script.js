@@ -124,7 +124,10 @@ function playClick() {
 
 
 
-// Resolves the current display expression, evaluates left-to-right, handles errors, and then updates the display.
+// 1. Tokenize the display string into numbers and operators.
+// 2. Validate the tokens.
+// 3. Compute left-to-right.
+// 4. Display the result, rounding if longer than max length.
 function calculateResult() {
     const expression = (display && display.value) ? display.value.trim() : '';
     if (!expression) return;
