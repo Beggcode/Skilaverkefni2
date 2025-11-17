@@ -38,13 +38,32 @@ function handleInput(value) {
 
 
 function calculateResult() {
-    if (!/^[0-9+\-*/.]+$/.test(display.value)) return display.value = "ERROR!";
+    
+    const expression = display.value;
+
+    for (const char of expression) {
+        const isDigit = digits.includes(char);
+        const isOperator = operators.includes(char);
+        const isDot = char === '.';
+
+        if (!isDigit && !isOperator && !isDot) {
+            display.value = "ERROR!";
+            return;
+        }
+    }
+
     try {
-        let result = new Function('return ' + display.value)();
-        display.value = result.toString().length > MAX_DISPLAY_LENGTH
-            ? parseFloat(result.toPrecision(MAX_DISPLAY_LENGTH))
-            : result;
-    } catch { display.value = "ERROR!"; }
+        const result = Function('return ' + expression)();
+
+        const resultStr = result.toString();
+        display.value =
+            resultStr.length > MAX_DISPLAY_LENGTH
+                ? parseFloat(result.toPrecision(MAX_DISPLAY_LENGTH))
+                : result;
+
+    } catch {
+        display.value = "ERROR!";
+    }
 }
 
 
