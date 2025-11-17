@@ -1,80 +1,211 @@
-const digits = '0123456789';
-const operators = '+-*/';
+const DIGITS = '0123456789';
+const OPERATORS = '+-*/';
 const MAX_DISPLAY_LENGTH = 10;
+
 const display = document.getElementById('display');
 const clickSound = new Audio('audio/click.mp3');
 clickSound.volume = 0.1;
+// ----------------------------------------------- //
 
 
-document.querySelectorAll('#keys button').forEach(btn =>
-    btn.addEventListener('click', () => { playClick(); handleInput(btn.textContent); })
-);
+// Normalize input to a trimmed string
+function normalizeInput(input) {
+    return (input || '').toString().trim();
+}
+// Button click support
+document.querySelectorAll('#keys button').forEach(button => {
+    button.addEventListener('click', () => {
+        if (button.dataset.action === 'delete') {
+            playClick();
+            deleteLastCharacter();
+            return;
+        }
 
-
-document.addEventListener('keydown', e => {
-    if (digits.includes(e.key) ||
-        operators.includes(e.key) ||
-        e.key === '.' ||
-        e.key === 'Enter' ||
-        e.key.toLowerCase() === 'c') {
+        const buttonValue = normalizeInput(button.textContent);
         playClick();
-        handleInput(e.key);
+        handleInput(buttonValue);
+    });
+});
+
+// Keyboard support
+document.addEventListener('keydown', event => {
+    if (event.key === 'Backspace') {
+        playClick();
+        deleteLastCharacter();
+        event.preventDefault();
+        return;
+    }
+
+    const keyPressed = event.key === 'Enter' ? '=' : event.key;
+    if (
+        DIGITS.includes(keyPressed) ||
+        OPERATORS.includes(keyPressed) ||
+        keyPressed === '.' ||
+        keyPressed === '=' ||
+        keyPressed.toLowerCase() === 'c'
+    ) {
+        playClick();
+        handleInput(keyPressed);
     }
 });
 
 
-function handleInput(value) {
-    if (digits.includes(value) ||
-    operators.includes(value) ||
-    value === '.') 
-    appendToDisplay(value);
+// Handles nonnumeric input and routes to appropriate functions
+function handleInput(input) {
+    input = normalizeInput(input);
 
-    else if (value === '=' ||
-        value === 'Enter') 
+    if (DIGITS.includes(input) || OPERATORS.includes(input) || input === '.') {
+        appendToDisplay(input);
+        return;
+    }
+
+    if (input === '=') {
         calculateResult();
+        return;
+    }
 
-    else if (value.toLowerCase() === 'c') clearDisplay();
+    if (input.toLowerCase() === 'c') {
+        clearDisplay();
+        return;
+    }
+
+    if (input === 'DEL') {
+        deleteLastCharacter();
+    }
 }
 
 
-function calculateResult() {
-    
-    const expression = display.value;
 
-    for (const char of expression) {
-        const isDigit = digits.includes(char);
-        const isOperator = operators.includes(char);
-        const isDot = char === '.';
+function deleteLastCharacter() {
+    if (!display) return;
+    display.value = display.value.slice(0, -1);
+}
 
-        if (!isDigit && !isOperator && !isDot) {
-            display.value = "ERROR!";
+
+// Validate Input and them append to display
+function appendToDisplay(character) {
+    if (!display) return;
+
+    const lastCharacter = display.value.slice(-1);
+
+    if (OPERATORS.includes(character)) {
+        if (display.value === '') {
+            if (character === '-') display.value += character;
+            return;
+        }
+
+        if (OPERATORS.includes(lastCharacter)) {
+            display.value = display.value.slice(0, -1) + character;
             return;
         }
     }
 
-    try {
-        const result = Function('return ' + expression)();
-
-        const resultStr = result.toString();
-        display.value =
-            resultStr.length > MAX_DISPLAY_LENGTH
-                ? parseFloat(result.toPrecision(MAX_DISPLAY_LENGTH))
-                : result;
-
-    } catch {
-        display.value = "ERROR!";
+    if (display.value.length < MAX_DISPLAY_LENGTH) {
+        display.value += character;
     }
 }
 
 
-function playClick() { clickSound.currentTime = 0; clickSound.play(); }
 
-
-function appendToDisplay(char) {
-    if (display.value.length < MAX_DISPLAY_LENGTH) display.value += char;
+function clearDisplay() {
+    if (display) display.value = '';
 }
 
 
-function clearDisplay() { display.value = ""; }
+
+// Ertu clickaður?
+function playClick() {
+    try {
+        clickSound.currentTime = 0;
+        clickSound.play();
+    } catch (e) {}
+}
 
 
+
+
+// Resolves the current display expression, evaluates left-to-right, handles errors, and then updates the display.
+function calculateResult() {
+    const expression = (display && display.value) ? display.value.trim() : '';
+    if (!expression) return;
+
+    const tokens = [];
+    let currentNumber = '';
+
+    for (let i = 0; i < expression.length; i++) {
+        const character = expression[i];
+
+        if (DIGITS.includes(character) || character === '.') {
+            currentNumber += character;
+            continue;
+        }
+
+        if (OPERATORS.includes(character)) {
+            const previousTokenIsOperator = tokens.length > 0 && OPERATORS.includes(tokens[tokens.length - 1]);
+
+            if (character === '-' && currentNumber === '' && (tokens.length === 0 || previousTokenIsOperator)) {
+                currentNumber = '-';
+                continue;
+            }
+
+            if (currentNumber === '' || currentNumber === '-') {
+                display.value = "ERROR!";
+                return;
+            }
+
+            tokens.push(currentNumber);
+            tokens.push(character);
+            currentNumber = '';
+            continue;
+        }
+
+        display.value = "ERROR!";
+        return;
+    }
+
+    if (currentNumber === '' || currentNumber === '-') {
+        display.value = "ERROR!";
+        return;
+    }
+
+    tokens.push(currentNumber);
+
+    if (tokens.length % 2 === 0) {
+        display.value = "ERROR!";
+        return;
+    }
+
+    let accumulator = parseFloat(tokens[0]);
+    if (!Number.isFinite(accumulator)) {
+        display.value = "ERROR!";
+        return;
+    }
+
+    for (let i = 1; i < tokens.length; i += 2) {
+        const operator = tokens[i];
+        const nextNumber = parseFloat(tokens[i + 1]);
+
+        if (!Number.isFinite(nextNumber)) {
+            display.value = "ERROR!";
+            return;
+        }
+
+        switch (operator) {
+            case '+': accumulator += nextNumber; break;
+            case '-': accumulator -= nextNumber; break;
+            case '*': accumulator *= nextNumber; break;
+            case '/':
+                if (nextNumber === 0) { display.value = "ERROR!"; return; }
+                accumulator /= nextNumber;
+                break;
+            default:
+                display.value = "ERROR!";
+                return;
+        }
+    }
+
+    const resultString = accumulator.toString();
+    display.value = resultString.length > MAX_DISPLAY_LENGTH
+        ? parseFloat(accumulator.toPrecision(MAX_DISPLAY_LENGTH))
+        : accumulator;
+}
